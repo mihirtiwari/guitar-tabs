@@ -1,27 +1,12 @@
-# from splinter import Browser
-#
-# browser = Browser()
-#
-# url = 'https://www.ultimate-guitar.com/search.php?search_type=title&order=&value='
-#
-# title = raw_input('What is the name of the song? ')
-#
-# artist = raw_input('What is the name of the artist? ')
-#
-# query = (title + '+' + artist).replace(" ", "+")
-#
-# browser.visit(url + query.lower())
-#
-# if browser.is_text_present('No matches'):
-#     print('Tab was unable to be found\n')
-# else:
-#     print('Tab exists')
-#
-# browser.quit()
-import sys, requests
+import sys, requests, os
 from bs4 import BeautifulSoup
 
 if len(sys.argv) > 1:
+    directory = raw_input("Which directory would you like to put the tabs in? ")
+    while os.path.isdir(directory) is False:
+        print('Invalid path given.')
+        directory = raw_input("Which directory would you like to put the tabs in? ")
+
     star_or_review = 1 if sys.argv[len(sys.argv) - 1] == '/s' else 0 # 0 is reviews and 1 is stars; set to review by default
     query = "+".join(sys.argv[1:len(sys.argv)])
     url = 'https://www.ultimate-guitar.com/search.php?search_type=title&order=&value='
@@ -49,7 +34,6 @@ if len(sys.argv) > 1:
 
                     links = []
 
-                    #dict can't store repeat keys
                     if stars['title'] not in star:
                         links.append(link)
                     else:
@@ -67,31 +51,47 @@ if len(sys.argv) > 1:
 
 
     if star_or_review is 0: # sort by reviews
-        for num in range(0,3):
-            valid_links.append(reviews[review_numbers[num]])
+        print(reviews)
+        for num in review_numbers:
+            valid_links.append(reviews[num])
     else:
         total = 0
-        for num in range(0,3):
-            if num < len(star_numbers):
-                n = star_numbers[num]
-                if len(star[str(n)]) >= 3:
-                    i = 0
-                    while total < 3:
-                        valid_links.append(star[str(n)][i])
-                        i = i + 1
-                        total = total + 1
-                else:
-                    i = 0
-                    while total < 3:
-                        if i < len(star[str(n)]):
-                            valid_links.append(star[str(n)][i])
-                            total = total + 1
-                            i = i + 1
-                        else:
-                            break;
+        for n in star_numbers:
+            if len(star[str(n)]) >= 3:
+                i = 0
+                while total < 3:
+                    valid_links.append(star[str(n)][i])
+                    i = i + 1
+                    total = total + 1
             else:
-                break;
+                i = 0
+                while total < 3:
+                    if i < len(star[str(n)]):
+                        valid_links.append(star[str(n)][i])
+                        total = total + 1
+                        i = i + 1
+                    else:
+                        break;
 
-    print(valid_links)
+    # start link scraping
+    for links in valid_links:
+        url = links
+        result = requests.get(url)
+        soup = BeautifulSoup(result.content, 'html.parser')
+
+        tab = soup.find(class_="js-tab-content").text
+        stripped_url = url[len('https://tabs.ultimate-guitar.com/')+ 2:]
+        tab_title = stripped_url[stripped_url.find('/') + 1: stripped_url.find('.htm')].title()
+
+        file_name = directory + '/' + tab_title + '.txt'
+
+        tab_file = open(file_name, 'w')
+
+        tab_file.write(tab)
+
+        tab_file.close()
+
+    print('Done! Your tabs can be found at -> ' + os.path.abspath(directory))
+
 else:
     print("Usage: tab <song and/or artist> <sort by stars or reviews>")
